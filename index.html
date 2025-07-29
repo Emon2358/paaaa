@@ -1,13 +1,11 @@
-import { serve } from "https://deno.land/std@0.200.0/http/server.ts";
-
-// Deno Deploy ではトップレベルで serve を呼び出します
-serve(async (req: Request) => {
-  const html = `<!DOCTYPE html>
+<!-- index.html (GitHub Pages 用) -->
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Torrent Video Stream</title>
+  <!-- WebTorrent クライアントを読み込み -->
   <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
 </head>
 <body>
@@ -16,19 +14,24 @@ serve(async (req: Request) => {
   <script>
     (async () => {
       try {
+        // WebTorrent クライアントを初期化
         const client = new WebTorrent();
         const torrentUrl = "https://sukebei.nyaa.si/download/4350323.torrent";
 
+        // .torrent ファイルをフェッチ
         const response = await fetch(torrentUrl);
         if (!response.ok) throw new Error(`Failed to fetch torrent: ${response.status}`);
         const arrayBuffer = await response.arrayBuffer();
 
+        // トレントを追加
         client.add(new Uint8Array(arrayBuffer), (torrent) => {
+          // 動画ファイルを検索して再生
           const file = torrent.files.find(file => /\.(mp4|mkv|webm)$/i.test(file.name));
           if (!file) {
             document.body.insertAdjacentHTML('beforeend', '<p>動画ファイルが見つかりませんでした。</p>');
             return;
           }
+          // <video> 要素にストリーミング
           file.renderTo(document.getElementById('video'));
         });
       } catch (e) {
@@ -38,10 +41,4 @@ serve(async (req: Request) => {
     })();
   </script>
 </body>
-</html>`;
-
-  return new Response(html, {
-    status: 200,
-    headers: { "Content-Type": "text/html; charset=UTF-8" },
-  });
-});
+</html>
