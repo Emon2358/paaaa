@@ -1,4 +1,4 @@
-<!-- index.html (GitHub Pages 用) -->
+<!-- index.html (GitHub Pages 用, Magnet URI 入力対応) -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -7,38 +7,53 @@
   <title>Torrent Video Stream</title>
   <!-- WebTorrent クライアントを読み込み -->
   <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 1rem; }
+    #controls { margin-bottom: 1rem; }
+    #magnetInput { width: 80%; padding: 0.5rem; }
+    #loadBtn { padding: 0.5rem 1rem; margin-left: 0.5rem; }
+  </style>
 </head>
 <body>
   <h1>トレントファイルの動画ストリーミング</h1>
+  <div id="controls">
+    <input id="magnetInput" type="text" placeholder="Magnet URI をここに貼り付け" />
+    <button id="loadBtn">読み込み</button>
+  </div>
   <video id="video" controls style="max-width: 100%; height: auto;"></video>
+
   <script>
-    (async () => {
+    let client;
+    document.getElementById('loadBtn').addEventListener('click', async () => {
+      const magnetUri = document.getElementById('magnetInput').value.trim();
+      if (!magnetUri) {
+        alert('Magnet URI を入力してください');
+        return;
+      }
+
+      // 既存のクライアントがあれば破棄
+      if (client) {
+        client.destroy();
+        client = null;
+        document.getElementById('video').src = '';
+      }
+
       try {
-        // WebTorrent クライアントを初期化
-        const client = new WebTorrent();
-        const torrentUrl = "https://sukebei.nyaa.si/download/4350323.torrent";
-
-        // .torrent ファイルをフェッチ
-        const response = await fetch(torrentUrl);
-        if (!response.ok) throw new Error(`Failed to fetch torrent: ${response.status}`);
-        const arrayBuffer = await response.arrayBuffer();
-
-        // トレントを追加
-        client.add(new Uint8Array(arrayBuffer), (torrent) => {
-          // 動画ファイルを検索して再生
-          const file = torrent.files.find(file => /\.(mp4|mkv|webm)$/i.test(file.name));
+        client = new WebTorrent();
+        client.add(magnetUri, (torrent) => {
+          const file = torrent.files.find(f => /\.(mp4|mkv|webm)$/i.test(f.name));
           if (!file) {
-            document.body.insertAdjacentHTML('beforeend', '<p>動画ファイルが見つかりませんでした。</p>');
+            alert('動画ファイルが見つかりませんでした。');
             return;
           }
-          // <video> 要素にストリーミング
+          // ストリーミング開始
           file.renderTo(document.getElementById('video'));
         });
       } catch (e) {
         console.error(e);
-        document.body.insertAdjacentHTML('beforeend', `<p>エラー: ${e.message}</p>`);
+        alert(`エラーが発生しました: ${e.message}`);
       }
-    })();
+    });
   </script>
 </body>
 </html>
