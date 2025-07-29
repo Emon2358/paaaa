@@ -1,4 +1,4 @@
-<!-- index.html (GitHub Pages 用, Magnet URI 入力対応・再生デバッグ強化) -->
+<!-- index.html (GitHub Pages 用, Magnet URI 入力対応・ストリーミング方式修正) -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -12,6 +12,7 @@
     #magnetInput { width: 80%; padding: 0.5rem; }
     #loadBtn { padding: 0.5rem 1rem; margin-left: 0.5rem; }
     #status { margin-top: 1rem; color: #555; }
+    video { background: #000; }
   </style>
 </head>
 <body>
@@ -38,20 +39,24 @@
         return;
       }
 
+      // 既存クライアントを破棄
       if (client) client.destroy();
       client = new WebTorrent();
 
       setStatus('トレント追加中...');
       client.add(magnetUri, torrent => {
-        setStatus(`ダウンロード進行中: 0%`);
+        setStatus('メタデータ取得完了、ダウンロード開始...');
+
+        // ダウンロード進捗
         torrent.on('download', () => {
           const percent = (torrent.progress * 100).toFixed(1);
           setStatus(`ダウンロード進行中: ${percent}%`);
         });
         torrent.on('done', () => {
-          setStatus('ダウンロード完了。再生準備中...');
+          setStatus('ダウンロード完了、再生開始...');
         });
 
+        // 動画ファイルを選択
         const file = torrent.files.find(f => /\.(mp4|mkv|webm)$/i.test(f.name));
         if (!file) {
           alert('動画ファイルが見つかりませんでした。');
@@ -59,23 +64,19 @@
           return;
         }
 
-        // Blob URL を取得して再生
-        file.getBlobURL((err, url) => {
-          if (err) {
-            console.error(err);
-            alert('動画 URL の取得に失敗しました。');
-            setStatus('エラー発生');
-            return;
-          }
-          const video = document.getElementById('video');
-          video.src = url;
-          video.load();
-          video.play().catch(e => {
-            console.warn('自動再生失敗:', e);
-            setStatus('クリックして再生してください');
-          });
-          setStatus('再生中...');
+        // ファイルを <video> に直接ストリーミング
+        const videoEl = document.getElementById('video');
+        file.renderTo(videoEl, {
+          autoplay: true,
+          controls: true,
         });
+
+        videoEl.addEventListener('error', e => {
+          console.error('Video error', e);
+          setStatus('動画再生エラーが発生しました');
+        });
+
+        setStatus('再生中...');
       });
 
       client.on('error', err => {
